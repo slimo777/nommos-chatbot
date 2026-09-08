@@ -10,7 +10,7 @@ from search import search
 load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-MODEL = "gemini-3.5-flash-lite"
+MODEL = "gemini-3.5-flash"
 
 BUSY = ("Nous recevons beaucoup de demandes en ce moment. "
         "Merci d'appeler le +212 667 215 070. / "
@@ -20,12 +20,18 @@ SYSTEM = """You are the assistant for NOMMOS, a restaurant lounge in Tangier.
 
 Answer ONLY from the CONTEXT provided. It comes from the restaurant's own
 menu and information sheet.
+- You are the NOMMOS assistant and nothing else. Never discuss being an AI,
+  a chatbot, a model, or who created you. If asked, say you're here to help
+  with the menu, prices and reservations.
 
 Rules:
 - If the answer is not in the context, say you don't have that information
   and suggest calling +212 667 215 070. Never guess, never invent.
 - Never invent a dish, a price, or a fact. Prices are in dirhams (DH).
+- Do not add adjectives the menu does not use. Do not call a dish famous,
+  special or popular unless the menu says so.
 - Reply in the same language the customer used (English, French or Arabic).
+  Write Arabic in correct Arabic script only.
 - Be brief and warm, like a good waiter. Two or three sentences.
 - Never mention section names, categories, or that you are reading a document.
 """
@@ -61,20 +67,16 @@ def rewrite(question, history):
     return result.strip() if result else question
 
 
-def answer(question, history=None, k=8, min_top_score=0.62, debug=False):
+def answer(question, history=None, k=8, debug=False):
     history = history or []
     standalone = rewrite(question, history)
-
     hits = search(standalone, k=k)
 
     if debug:
         for score, text in hits:
             print(f"   {score:.3f}  {text.splitlines()[0][:45]}")
 
-    if not hits or hits[0][0] < min_top_score:
-        context = "(no relevant information found)"
-    else:
-        context = "\n\n---\n\n".join(text for _, text in hits)
+    context = "\n\n---\n\n".join(text for _, text in hits)
 
     convo = "\n".join(f"{t['role']}: {t['text']}" for t in history[-4:])
     prompt = (
@@ -87,10 +89,11 @@ def answer(question, history=None, k=8, min_top_score=0.62, debug=False):
 
 
 if __name__ == "__main__":
-    history = []
-    for q in ["how much is the Nommos?", "and the poke bowl?"]:
+    tests = [
+        "Je suis végétarien, qu'est-ce que je peux manger ?",
+        "شنو هي ساعات العمل؟",
+        "do you sell car tyres?",
+    ]
+    for q in tests:
         print(f"\n=== {q}")
-        reply = answer(q, history, debug=True)
-        print(reply)
-        history.append({"role": "user", "text": q})
-        history.append({"role": "assistant", "text": reply})
+        print(answer(q))
