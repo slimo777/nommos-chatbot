@@ -3,13 +3,18 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from google.genai import errors
 
 from search import search
 
 load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
-MODEL = "gemini-3.5-flash"
+MODEL = "gemini-3.5-flash-lite"
+
+BUSY = ("Nous recevons beaucoup de demandes en ce moment. "
+        "Merci d'appeler le +212 667 215 070. / "
+        "We're very busy right now — please call +212 667 215 070.")
 
 SYSTEM = """You are the assistant for NOMMOS, a restaurant lounge in Tangier.
 
@@ -34,24 +39,31 @@ makes sense on its own, without the conversation.
 """
 
 
+def generate(contents, system):
+    try:
+        response = client.models.generate_content(
+            model=MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=system),
+        )
+        return response.text
+    except errors.ClientError as e:
+        if getattr(e, "code", None) == 429:
+            return None
+        raise
+
+
 def rewrite(question, history):
     if not history:
         return question
     convo = "\n".join(f"{t['role']}: {t['text']}" for t in history[-4:])
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=f"{convo}\nuser: {question}",
-        config=types.GenerateContentConfig(system_instruction=REWRITE),
-    )
-    return response.text.strip()
+    result = generate(f"{convo}\nuser: {question}", REWRITE)
+    return result.strip() if result else question
 
 
 def answer(question, history=None, k=8, min_top_score=0.62, debug=False):
     history = history or []
     standalone = rewrite(question, history)
-
-    if debug and standalone != question:
-        print(f"   rewritten -> {standalone}")
 
     hits = search(standalone, k=k)
 
@@ -70,12 +82,8 @@ def answer(question, history=None, k=8, min_top_score=0.62, debug=False):
         f"CONVERSATION SO FAR:\n{convo or '(none)'}\n\n"
         f"CUSTOMER QUESTION: {question}"
     )
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=prompt,
-        config=types.GenerateContentConfig(system_instruction=SYSTEM),
-    )
-    return response.text
+    result = generate(prompt, SYSTEM)
+    return result if result else BUSY
 
 
 if __name__ == "__main__":
