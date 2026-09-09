@@ -12,6 +12,7 @@ load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 MODEL = "gemini-3.5-flash"
+REWRITE_MODEL = "gemini-3.5-flash-lite"
 
 BUSY = ("Nous recevons beaucoup de demandes en ce moment. "
         "Merci d'appeler le +212 667 215 070. / "
@@ -98,11 +99,10 @@ def answer(question, history=None, k=8, debug=False):
 
 
 if __name__ == "__main__":
-    tests = [
-        "Je suis végétarien, qu'est-ce que je peux manger ?",
-        "شنو هي ساعات العمل؟",
-        "do you sell car tyres?",
-    ]
-    for q in tests:
+    history = []
+    for q in ["how much is the Nommos?", "and the poke bowl?"]:
         print(f"\n=== {q}")
-        print(answer(q))
+        reply = answer(q, history)
+        print(reply)
+        history.append({"role": "user", "text": q})
+        history.append({"role": "assistant", "text": reply})
