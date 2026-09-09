@@ -1,0 +1,10 @@
+[33mcommit 3f19799352bcd9862759825be087e385601ea300[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m
+Author: slimo777 <slimani.aimadeddine@etu.uae.ac.ma>
+Date:   Wed Sep 9 14:28:53 2026 +0100
+
+    Correct opening hours and location from NOMMOS contact page
+
+ embeddings_category.json | 2 [32m+[m[31m-[m
+ embeddings_item.json     | 2 [32m+[m[31m-[m
+ nommos_menu.txt          | 5 [32m+++[m[31m--[m
+ 3 files changed, 5 insertions(+), 4 deletions(-)

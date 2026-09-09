@@ -1,4 +1,5 @@
 import os
+import time
 
 from dotenv import load_dotenv
 from google import genai
@@ -45,18 +46,24 @@ makes sense on its own, without the conversation.
 """
 
 
-def generate(contents, system):
-    try:
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=contents,
-            config=types.GenerateContentConfig(system_instruction=system),
-        )
-        return response.text
-    except errors.ClientError as e:
-        if getattr(e, "code", None) == 429:
+def generate(contents, system, tries=3):
+    for attempt in range(tries):
+        try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=contents,
+                config=types.GenerateContentConfig(system_instruction=system),
+            )
+            return response.text
+        except errors.ServerError as e:
+            print(f"[generate] server error {getattr(e, 'code', None)}, retrying")
+            time.sleep(1.5 * (attempt + 1))
+        except errors.ClientError as e:
+            if getattr(e, "code", None) != 429:
+                raise
+            print("[generate] rate limited")
             return None
-        raise
+    return None
 
 
 def rewrite(question, history):
@@ -71,6 +78,8 @@ def answer(question, history=None, k=8, debug=False):
     history = history or []
     standalone = rewrite(question, history)
     hits = search(standalone, k=k)
+    if not hits:
+        return BUSY
 
     if debug:
         for score, text in hits:
